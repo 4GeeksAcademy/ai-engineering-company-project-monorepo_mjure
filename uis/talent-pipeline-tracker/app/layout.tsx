@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Talent Pipeline Tracker",
-  description: "Panel interno para gestionar candidaturas, etapas, estados y notas.",
+  title: "TrackFlow Incident Center",
+  description: "Centro operativo de incidencias, SLA y trazabilidad de TrackFlow.",
 };
 
 export default function RootLayout({

@@ -1,0 +1,27 @@
+metric,value,percentage
+total_records,100,
+valid_records,95,
+invalid_records,5,
+invalid.Invalid tracking number,1,
+invalid.Carrier/country mismatch,1,
+invalid.Invalid or missing category,1,
+invalid.Invalid or missing email,1,
+"invalid.Closed incident, no score",1,
+category.LOST_PARCEL,14,14.7
+category.DELAYED_DELIVERY,38,40.0
+category.WRONG_ADDRESS,19,20.0
+category.RETURN_REQUEST,17,17.9
+category.DAMAGE,7,7.4
+status.OPEN,29,30.5
+status.CLOSED,52,54.7
+status.DISCARDED,14,14.7
+country.US,50,52.6
+country.ES,45,47.4
+satisfaction.closed_cases,52,
+satisfaction.scored_cases,52,
+satisfaction.average,3.06,
+satisfaction.score_1,6,
+satisfaction.score_2,11,
+satisfaction.score_3,15,
+satisfaction.score_4,14,
+satisfaction.score_5,6,

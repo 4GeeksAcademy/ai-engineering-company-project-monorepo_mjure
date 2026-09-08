@@ -1,30 +1,32 @@
-"""
-Safe snippet for basic pandas cleaning. Copy and adapt for your dataset.
-Run: python pandas_clean.py  (ensure pandas is installed)
-"""
-import pandas as pd
+"""Safe snippet for basic pandas cleaning."""
+import sys
 
-# Load (adjust path and kwargs as needed)
-df = pd.read_csv("data.csv")  # or read_json, read_excel
-print("df_shape", df.shape)
-print("df_dtypes", df.dtypes)
+try:
+	import pandas as pd
+except ModuleNotFoundError:
+	print("No se puede ejecutar la limpieza: falta la dependencia pandas.", file=sys.stderr)
+	raise SystemExit(1)
 
-# Drop fully null columns
-df = df.dropna(axis=1, how="all")
-print("df_shape_after_drop_all_null_cols", df.shape)
+def main() -> None:
+	try:
+		df = pd.read_csv("data.csv")
+		print("df_shape", df.shape)
+		print("df_dtypes", df.dtypes)
 
-# Fill or drop nulls in key columns (customise columns)
-# df = df.dropna(subset=["required_col"])
-# df["optional_col"] = df["optional_col"].fillna(0)
+		df = df.dropna(axis=1, how="all")
+		print("df_shape_after_drop_all_null_cols", df.shape)
 
-# Normalise column names (optional)
-df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
-print("df_columns", list(df.columns))
+		df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+		print("df_columns", list(df.columns))
 
-# Deduplicate (optional)
-before = len(df)
-df = df.drop_duplicates()
-print("rows_dropped_duplicates", before - len(df))
+		before = len(df)
+		df = df.drop_duplicates()
+		print("rows_dropped_duplicates", before - len(df))
+		print("df_head", df.head())
+	except (OSError, pd.errors.ParserError, UnicodeError):
+		print("No se pudo leer o procesar el archivo CSV.", file=sys.stderr)
+		raise SystemExit(1)
 
-# Sample output
-print("df_head", df.head())
+
+if __name__ == "__main__":
+	main()
