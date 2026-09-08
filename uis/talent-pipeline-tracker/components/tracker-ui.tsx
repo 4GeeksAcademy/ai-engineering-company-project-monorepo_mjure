@@ -2,23 +2,38 @@ import type { HTMLInputTypeAttribute, ReactNode } from "react";
 
 import type { AsyncFeedback } from "@/types/tracker";
 
+const INTERNAL_ERROR_DETAILS = /(?:[A-Za-z]:\\|\/[^\s]+|stack\s*trace|traceback|password|secret|token|api[_-]?key|database|connection|string|sql|errno| at [^\n]+)/i;
+
+function safeFeedbackMessage(feedback: AsyncFeedback) {
+  if (feedback.tone !== "error" || !INTERNAL_ERROR_DETAILS.test(feedback.message)) {
+    return feedback.message;
+  }
+  return "No se pudo completar la operación. Inténtalo de nuevo.";
+}
+
 export function FeedbackBanner({
   feedback,
   className = "",
+  actionLabel,
+  onAction,
 }: {
   feedback: AsyncFeedback;
   className?: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
   const palette = {
     loading: "border-sky-200 bg-sky-50 text-sky-800",
     success: "border-emerald-200 bg-emerald-50 text-emerald-800",
     error: "border-rose-200 bg-rose-50 text-rose-700",
   }[feedback.tone];
+  const message = safeFeedbackMessage(feedback);
 
   return (
-    <p className={`rounded-2xl border px-4 py-3 text-sm ${palette} ${className}`.trim()}>
-      {feedback.message}
-    </p>
+    <div role={feedback.tone === "error" ? "alert" : undefined} className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${palette} ${className}`.trim()}>
+      <span>{message}</span>
+      {actionLabel && onAction && <button type="button" onClick={onAction} className="shrink-0 font-semibold underline">{actionLabel}</button>}
+    </div>
   );
 }
 

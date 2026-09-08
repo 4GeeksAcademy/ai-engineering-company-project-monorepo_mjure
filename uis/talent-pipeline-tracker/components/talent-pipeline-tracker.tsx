@@ -1,783 +1,133 @@
 "use client";
 
-import {
-  Suspense,
-  startTransition,
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useState,
-  type FormEvent,
-} from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { createRecord, deleteRecord, fetchRecords, updateIncident } from "@/lib/tracker-api";
+import { CATALOGS, EMPTY_FORM, SEVERITY_OPTIONS, STATUS_OPTIONS } from "@/lib/tracker-config";
+import { FeedbackBanner } from "@/components/tracker-ui";
+import type { AsyncFeedback, Incident, IncidentFormValues, TrackerFilters } from "@/types/tracker";
 
-import {
-  createNote,
-  createRecord,
-  deleteNote,
-  fetchRecordDetail,
-  fetchRecords,
-  patchRecord,
-  updateRecord,
-} from "@/lib/tracker-api";
-import { EMPTY_FORM, STAGE_OPTIONS, STATUS_OPTIONS } from "@/lib/tracker-config";
-import {
-  buildErrorMessage,
-  buildLabel,
-  buildStageSuccessMessage,
-  buildStatusSuccessMessage,
-  buildTrackerHref,
-  formatDate,
-  normalizeFormValues,
-} from "@/lib/tracker-utils";
-import type {
-  AsyncFeedback,
-  CandidateFormValues,
-  FormMode,
-  Note,
-  RecordListItem,
-  RecordSummary,
-  TrackerFilters,
-} from "@/types/tracker";
-import { FeedbackBanner, Field, InfoBlock, PageSkeleton, PanelCard } from "@/components/tracker-ui";
+const labels: Record<string, string> = {
+  los_angeles: "Los Ángeles", zaragoza: "Zaragoza", open: "Abierta", assigned: "Asignada", in_progress: "En curso", resolved: "Resuelta", closed: "Cerrada", reopened: "Reabierta", critical: "Crítica", high: "Alta", medium: "Media", low: "Baja",
+  lost_parcel: "Paquete perdido", inventory_discrepancy: "Discrepancia de inventario", carrier_failure: "Fallo de transportista", system_outage: "Caída de sistema", return_dispute: "Disputa de devolución", sla_breach: "Incumplimiento SLA", carrier_portal_alert: "Alerta del portal", client_email: "Email del cliente", wms_alert: "Alerta WMS", warehouse_call: "Llamada de almacén", dashboard: "Backoffice", warehouse_operations: "Operaciones de almacén", last_mile_carrier: "Última milla", reverse_logistics: "Logística inversa", customer_experience: "Experiencia cliente", commercial: "Comercial", technology: "Tecnología", status: "Estado", assigned_to: "Responsable", responsible_area: "Área",
+};
+const initialFilters: TrackerFilters = { status: "", severity: "", location: "", search: "" };
 
 export function TalentPipelineTracker({ initialRecordId }: { initialRecordId?: string | null }) {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <TalentPipelineTrackerContent initialRecordId={initialRecordId ?? null} />
-    </Suspense>
-  );
-}
-
-function TalentPipelineTrackerContent({ initialRecordId }: { initialRecordId: string | null }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [records, setRecords] = useState<RecordListItem[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [filters, setFilters] = useState<TrackerFilters>({
-    status: searchParams.get("status") ?? "",
-    stage: searchParams.get("stage") ?? "",
-    search: searchParams.get("search") ?? "",
-  });
-  const deferredSearch = useDeferredValue(filters.search);
-  const [selectedRecordId, setSelectedRecordId] = useState<string | null>(initialRecordId);
-  const [selectedRecord, setSelectedRecord] = useState<RecordSummary | null>(null);
-  const [selectedNotes, setSelectedNotes] = useState<Note[]>([]);
+  const [records, setRecords] = useState<Incident[]>([]);
+  const [selected, setSelected] = useState<Incident | null>(null);
+  const [filters, setFilters] = useState(initialFilters);
+  const [form, setForm] = useState<IncidentFormValues>(EMPTY_FORM);
+  const [showForm, setShowForm] = useState(false);
+  const [listFeedback, setListFeedback] = useState<AsyncFeedback>({ tone: "loading", message: "Cargando incidencias..." });
+  const [actionFeedback, setActionFeedback] = useState<AsyncFeedback>({ tone: "success", message: "Listo." });
+  const [retryAction, setRetryAction] = useState<"save" | "change" | "remove" | null>(null);
+  const [retryChange, setRetryChange] = useState<{ field: "status" | "assigned_to" | "responsible_area"; value: string } | null>(null);
   const [listLoading, setListLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [activeMutation, setActiveMutation] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState("");
-  const [formMode, setFormMode] = useState<FormMode | null>(null);
-  const [formValues, setFormValues] = useState<CandidateFormValues>(EMPTY_FORM);
-  const [listFeedback, setListFeedback] = useState<AsyncFeedback | null>(null);
-  const [detailFeedback, setDetailFeedback] = useState<AsyncFeedback | null>(null);
-  const [formFeedback, setFormFeedback] = useState<AsyncFeedback | null>(null);
-  const activeRecordId = selectedRecordId ?? records[0]?.id ?? null;
+  const [actionLoading, setActionLoading] = useState(false);
+  const loading = listLoading;
 
-  const syncRecordSnapshot = useCallback((record: RecordSummary) => {
-    setSelectedRecord((current) => (current?.id === record.id ? record : current));
-    setRecords((current) =>
-      current.map((item) => (item.id === record.id ? { ...item, ...record } : item)),
-    );
-  }, []);
-
-  const refreshRecords = useCallback(async () => {
+  const refresh = useCallback(async (preferredId?: string) => {
     setListLoading(true);
-    setListFeedback({ tone: "loading", message: "Cargando candidaturas de Trackflow..." });
-
+    setListFeedback({ tone: "loading", message: "Cargando incidencias..." });
+    let response;
     try {
-      const response = await fetchRecords({ ...filters, search: deferredSearch });
-      setRecords(response.data);
-      setTotalRecords(response.total);
-      setListFeedback({
-        tone: "success",
-        message:
-          response.data.length === 0
-            ? "Listado actualizado. No hay perfiles para los filtros actuales."
-            : `Listado actualizado con ${response.data.length} perfiles de Trackflow.`,
-      });
-    } catch (error) {
-      setListFeedback({ tone: "error", message: buildErrorMessage(error) });
+      response = await fetchRecords(filters);
+    } catch {
+      setListFeedback({ tone: "error", message: "No se pudieron cargar las incidencias." });
+      return;
     } finally {
       setListLoading(false);
     }
-  }, [deferredSearch, filters]);
-
-  const refreshRecordDetail = useCallback(
-    async (recordId: string) => {
-      setDetailLoading(true);
-      setDetailFeedback({ tone: "loading", message: "Cargando ficha del candidato..." });
-
-      try {
-        const { record, notes } = await fetchRecordDetail(recordId);
-        setSelectedRecord(record);
-        setSelectedNotes(notes.data);
-        syncRecordSnapshot({ ...record, notes_count: notes.meta.total });
-        setDetailFeedback({ tone: "success", message: `Ficha cargada para ${record.full_name}.` });
-      } catch (error) {
-        setDetailFeedback({ tone: "error", message: buildErrorMessage(error) });
-      } finally {
-        setDetailLoading(false);
-      }
-    },
-    [syncRecordSnapshot],
-  );
-
+    setRecords(response.data);
+    setSelected(response.data.find((item) => item.id === preferredId) ?? response.data[0] ?? null);
+    setListFeedback({ tone: "success", message: "Incidencias actualizadas." });
+  }, [filters]);
   useEffect(() => {
     async function loadRecords() {
-      await refreshRecords();
+      await refresh(initialRecordId ?? undefined);
     }
-
     void loadRecords();
-  }, [refreshRecords]);
-
-  useEffect(() => {
-    if (listFeedback?.tone !== "success") {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setListFeedback((current) => (current?.tone === "success" ? null : current));
-    }, 3500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [listFeedback]);
-
-  useEffect(() => {
-    if (detailFeedback?.tone !== "success") {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setDetailFeedback((current) => (current?.tone === "success" ? null : current));
-    }, 3500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [detailFeedback]);
-
-  useEffect(() => {
-    if (formFeedback?.tone !== "success") {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setFormFeedback((current) => (current?.tone === "success" ? null : current));
-    }, 3500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [formFeedback]);
-
-  useEffect(() => {
-    const nextHref = buildTrackerHref(activeRecordId, filters);
-    const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-
-    if (nextHref === currentHref) {
-      return;
-    }
-
-    startTransition(() => {
-      router.replace(nextHref, { scroll: false });
-    });
-  }, [activeRecordId, filters, pathname, router, searchParams]);
-
-  useEffect(() => {
-    if (!activeRecordId) {
-      return;
-    }
-
-    async function loadRecordDetail() {
-      await refreshRecordDetail(activeRecordId);
-    }
-
-    void loadRecordDetail();
-  }, [activeRecordId, refreshRecordDetail]);
-
-  async function handleQuickUpdate(field: "status" | "stage", value: string) {
-    if (!selectedRecord) {
-      return;
-    }
-
-    const previousRecord = selectedRecord;
-    const optimisticRecord = {
-      ...selectedRecord,
-      [field]: value,
-      updated_at: new Date().toISOString(),
-    };
-
-    setActiveMutation(field);
-    setDetailFeedback({
-      tone: "loading",
-      message:
-        field === "status"
-          ? "Actualizando estado de la candidatura..."
-          : "Actualizando etapa de la candidatura...",
-    });
-    syncRecordSnapshot(optimisticRecord);
-
-    try {
-      const updated = await patchRecord(selectedRecord.id, { [field]: value });
-      syncRecordSnapshot(updated);
-      setDetailFeedback({
-        tone: "success",
-        message:
-          field === "status"
-            ? buildStatusSuccessMessage(updated.status)
-            : buildStageSuccessMessage(updated.stage),
-      });
-    } catch (error) {
-      syncRecordSnapshot(previousRecord);
-      setDetailFeedback({ tone: "error", message: buildErrorMessage(error) });
-    } finally {
-      setActiveMutation(null);
-    }
-  }
-
-  async function handleSubmitForm(event: FormEvent<HTMLFormElement>) {
+  }, [initialRecordId, refresh]);
+  function updateFilter(key: keyof TrackerFilters, value: string) { setFilters((current) => ({ ...current, [key]: value })); }
+  function openCreate() { setSelected(null); setForm(EMPTY_FORM); setShowForm(true); setActionFeedback({ tone: "success", message: "Listo para registrar una incidencia." }); }
+  function openEdit() { if (selected) { setForm({ ...selected, client_name: selected.client_name ?? "", assigned_to: selected.assigned_to ?? "" }); setShowForm(true); } }
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    setActiveMutation(formMode?.type === "edit" ? "saving-edit" : "saving-create");
-    setFormFeedback({
-      tone: "loading",
-      message:
-        formMode?.type === "edit"
-          ? "Guardando cambios de la candidatura..."
-          : "Creando nueva candidatura...",
-    });
-
+    if (actionLoading) return;
+    setRetryAction(null);
+    setActionLoading(true);
+    setActionFeedback({ tone: "loading", message: "Guardando incidencia..." });
+    let saved: Incident;
     try {
-      const payload = {
-        full_name: formValues.full_name.trim(),
-        email: formValues.email.trim(),
-        phone: formValues.phone.trim(),
-        position: formValues.position.trim(),
-        linkedin_url: formValues.linkedin_url.trim() || null,
-        cv_url: formValues.cv_url.trim() || null,
-        experience_years: Number(formValues.experience_years),
-      };
-
-      if (Number.isNaN(payload.experience_years)) {
-        throw new Error("Indica los años de experiencia con un valor numérico.");
-      }
-
-      const result =
-        formMode?.type === "edit"
-          ? await updateRecord(formMode.recordId, payload)
-          : await createRecord(payload);
-
-      setFormMode(null);
-      setFormValues(EMPTY_FORM);
-      setFormFeedback(null);
-      setSelectedRecordId(result.id);
-      await refreshRecords();
-      await refreshRecordDetail(result.id);
-      setDetailFeedback({
-        tone: "success",
-        message:
-          formMode?.type === "edit"
-            ? "Candidatura actualizada correctamente."
-            : "Candidatura creada correctamente.",
-      });
-    } catch (error) {
-      setFormFeedback({ tone: "error", message: buildErrorMessage(error) });
-    } finally {
-      setActiveMutation(null);
-    }
-  }
-
-  async function handleAddNote(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!selectedRecord || !noteDraft.trim()) {
+      saved = selected ? await updateIncident(selected.id, form) : await createRecord(form);
+    } catch {
+      setActionFeedback({ tone: "error", message: "No se pudo guardar la incidencia." });
+      setRetryAction("save");
       return;
+    } finally {
+      setActionLoading(false);
     }
-
-    setActiveMutation("adding-note");
-    setDetailFeedback({ tone: "loading", message: "Guardando nota interna..." });
-
+    setShowForm(false);
+    setActionFeedback({ tone: "success", message: "Incidencia guardada correctamente." });
+    await refresh(saved.id);
+  }
+  async function change(field: "status" | "assigned_to" | "responsible_area", value: string) {
+    if (!selected || actionLoading) return;
+    setRetryAction(null);
+    setRetryChange({ field, value });
+    setActionLoading(true);
+    setActionFeedback({ tone: "loading", message: "Registrando cambio..." });
+    let updated: Incident;
     try {
-      await createNote(selectedRecord.id, noteDraft.trim());
-      setNoteDraft("");
-      await refreshRecordDetail(selectedRecord.id);
-      await refreshRecords();
-      setDetailFeedback({ tone: "success", message: "Nota interna añadida correctamente." });
-    } catch (error) {
-      setDetailFeedback({ tone: "error", message: buildErrorMessage(error) });
-    } finally {
-      setActiveMutation(null);
-    }
-  }
-
-  async function handleDeleteNote(noteId: string) {
-    if (!selectedRecord) {
+      updated = await updateIncident(selected.id, { [field]: value });
+    } catch {
+      setActionFeedback({ tone: "error", message: "No se pudo actualizar la incidencia." });
+      setRetryAction("change");
       return;
+    } finally {
+      setActionLoading(false);
     }
-
-    setActiveMutation(`deleting-note-${noteId}`);
-    setDetailFeedback({ tone: "loading", message: "Eliminando nota interna..." });
-
+    setSelected(updated);
+    setRecords((items) => items.map((item) => item.id === updated.id ? updated : item));
+    setActionFeedback({ tone: "success", message: "Cambio registrado en auditoría." });
+  }
+  async function remove() {
+    if (!selected || actionLoading || !window.confirm("¿Eliminar esta incidencia?")) return;
+    setRetryAction(null);
+    setActionLoading(true);
+    setActionFeedback({ tone: "loading", message: "Eliminando incidencia..." });
     try {
-      await deleteNote(selectedRecord.id, noteId);
-      await refreshRecordDetail(selectedRecord.id);
-      await refreshRecords();
-      setDetailFeedback({ tone: "success", message: "Nota interna eliminada correctamente." });
-    } catch (error) {
-      setDetailFeedback({ tone: "error", message: buildErrorMessage(error) });
-    } finally {
-      setActiveMutation(null);
-    }
-  }
-
-  function openCreateForm() {
-    setFormFeedback(null);
-    setFormMode({ type: "create" });
-    setFormValues(EMPTY_FORM);
-  }
-
-  function openEditForm() {
-    if (!selectedRecord) {
+      await deleteRecord(selected.id);
+    } catch {
+      setActionFeedback({ tone: "error", message: "No se pudo eliminar la incidencia." });
+      setRetryAction("remove");
       return;
+    } finally {
+      setActionLoading(false);
     }
-
-    setFormFeedback(null);
-    setFormMode({ type: "edit", recordId: selectedRecord.id });
-    setFormValues(normalizeFormValues(selectedRecord));
+    setSelected(null);
+    setActionFeedback({ tone: "success", message: "Incidencia eliminada correctamente." });
+    await refresh();
   }
+  const counts = SEVERITY_OPTIONS.map((option) => ({ ...option, count: records.filter((record) => record.severity === option.value && !["closed", "resolved"].includes(record.status)).length }));
 
-  function handleSelectRecord(recordId: string) {
-    setSelectedRecordId(recordId);
-    startTransition(() => {
-      router.push(buildTrackerHref(recordId, filters), { scroll: false });
-    });
-  }
-
-  return (
-    <main className="min-h-screen px-4 py-6 text-slate-800 sm:px-6 lg:px-10">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <section className="overflow-hidden rounded-[2rem] border border-border bg-surface-strong shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-          <div className="flex flex-col gap-6 border-b border-border bg-[linear-gradient(135deg,rgba(255,250,243,0.95),rgba(236,253,245,0.92))] px-6 py-8 lg:flex-row lg:items-end lg:justify-between lg:px-8">
-            <div className="max-w-3xl space-y-3">
-              <span className="inline-flex w-fit rounded-full bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-accent shadow-sm">
-                Trackflow Talent Ops
-              </span>
-              <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-                  Trackflow Hiring Pipeline
-                </h1>
-                <p className="max-w-2xl text-sm leading-6 text-muted sm:text-base">
-                  Gestiona perfiles para las operaciones de Trackflow y entra al detalle por ruta dinámica sin perder el contexto del listado.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 backdrop-blur">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted">Perfiles</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-900">{totalRecords}</p>
-              </div>
-              <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 backdrop-blur">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted">Filtro activo</p>
-                <p className="mt-2 text-sm font-medium text-slate-900">
-                  {filters.status || filters.stage || filters.search ? "Sí" : "No"}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 backdrop-blur">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted">Ruta actual</p>
-                <p className="mt-2 break-all text-sm font-medium text-slate-900">{pathname}</p>
-              </div>
-              <button
-                type="button"
-                onClick={openCreateForm}
-                className="rounded-2xl bg-accent px-5 py-3 text-left text-white shadow-[0_14px_30px_rgba(15,118,110,0.28)] hover:bg-accent-strong"
-              >
-                <p className="text-xs uppercase tracking-[0.18em] text-emerald-50/90">Acción rápida</p>
-                <p className="mt-2 text-base font-semibold">Nueva candidatura</p>
-              </button>
-            </div>
-          </div>
-
-          <div className="grid gap-0 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
-            <section className="border-b border-border xl:border-r xl:border-b-0">
-              <div className="border-b border-border px-6 py-5 lg:px-8">
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,0.8fr))_auto]">
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                      Buscar
-                    </span>
-                    <input
-                      value={filters.search}
-                      onChange={(event) =>
-                        setFilters((current) => ({ ...current, search: event.target.value }))
-                      }
-                      placeholder="Nombre o email"
-                      className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none placeholder:text-slate-400"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                      Estado
-                    </span>
-                    <select
-                      value={filters.status}
-                      onChange={(event) =>
-                        setFilters((current) => ({ ...current, status: event.target.value }))
-                      }
-                      className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
-                    >
-                      <option value="">Todos</option>
-                      {STATUS_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                      Etapa
-                    </span>
-                    <select
-                      value={filters.stage}
-                      onChange={(event) =>
-                        setFilters((current) => ({ ...current, stage: event.target.value }))
-                      }
-                      className="w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
-                    >
-                      <option value="">Todas</option>
-                      {STAGE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setFilters({ status: "", stage: "", search: "" })}
-                    className="rounded-2xl border bg-surface px-4 py-3 text-sm font-medium text-slate-700 hover:bg-white"
-                  >
-                    Limpiar
-                  </button>
-                </div>
-
-                {listFeedback ? <FeedbackBanner feedback={listFeedback} className="mt-4" /> : null}
-              </div>
-
-              <div className="max-h-[72vh] overflow-y-auto">
-                {listLoading ? (
-                  <div className="space-y-3 px-6 py-6 lg:px-8">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <div key={index} className="h-28 animate-pulse rounded-3xl border bg-white/70" />
-                    ))}
-                  </div>
-                ) : records.length === 0 ? (
-                  <div className="px-6 py-12 text-center lg:px-8">
-                    <p className="text-lg font-medium text-slate-900">No hay resultados para estos filtros.</p>
-                    <p className="mt-2 text-sm text-muted">
-                      Ajusta la búsqueda, el estado o la etapa para volver a cargar candidaturas.
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="space-y-3 px-6 py-6 lg:px-8">
-                    {records.map((record) => {
-                      const isSelected = record.id === activeRecordId;
-
-                      return (
-                        <li key={record.id}>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectRecord(record.id)}
-                            className={`w-full rounded-[1.6rem] border px-5 py-4 text-left shadow-sm ${
-                              isSelected
-                                ? "border-accent bg-emerald-50/80 shadow-[0_16px_40px_rgba(15,118,110,0.12)]"
-                                : "bg-white/90 hover:border-slate-300 hover:bg-white"
-                            }`}
-                          >
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="space-y-2">
-                                <div>
-                                  <p className="text-lg font-semibold text-slate-900">{record.full_name}</p>
-                                  <p className="text-sm text-muted">{record.email}</p>
-                                </div>
-                                <p className="text-sm font-medium text-slate-700">{record.position}</p>
-                              </div>
-                              <div className="flex flex-wrap gap-2 sm:justify-end">
-                                <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
-                                  {buildLabel(record.status, STATUS_OPTIONS)}
-                                </span>
-                                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                                  {buildLabel(record.stage, STAGE_OPTIONS)}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="mt-4 flex flex-wrap gap-4 text-xs uppercase tracking-[0.14em] text-muted">
-                              <span>{record.notes_count} notas</span>
-                              <span>{record.experience_years} años exp.</span>
-                              <span>Actualizada {formatDate(record.updated_at)}</span>
-                            </div>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </section>
-
-            <section className="bg-[linear-gradient(180deg,rgba(255,255,255,0.7),rgba(255,250,243,0.96))]">
-              {detailLoading && !selectedRecord ? (
-                <div className="space-y-4 px-6 py-8 lg:px-8">
-                  <div className="h-10 animate-pulse rounded-2xl bg-white" />
-                  <div className="h-48 animate-pulse rounded-3xl bg-white" />
-                  <div className="h-56 animate-pulse rounded-3xl bg-white" />
-                </div>
-              ) : selectedRecord ? (
-                <div className="space-y-6 px-6 py-6 lg:px-8">
-                  <div className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted">
-                        Ficha de candidatura
-                      </p>
-                      <div>
-                        <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-                          {selectedRecord.full_name}
-                        </h2>
-                        <p className="mt-1 text-sm text-muted">{selectedRecord.position}</p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={openEditForm}
-                      className="rounded-2xl border bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      Editar candidatura
-                    </button>
-                  </div>
-
-                  {detailFeedback ? <FeedbackBanner feedback={detailFeedback} /> : null}
-
-                  <div className="grid gap-4 rounded-[1.8rem] border bg-white/90 p-5 sm:grid-cols-2">
-                    <InfoBlock label="Email" value={selectedRecord.email} />
-                    <InfoBlock label="Teléfono" value={selectedRecord.phone} />
-                    <InfoBlock label="LinkedIn" value={selectedRecord.linkedin_url || "No disponible"} />
-                    <InfoBlock label="CV" value={selectedRecord.cv_url || "No disponible"} />
-                    <InfoBlock label="Experiencia" value={`${selectedRecord.experience_years} años`} />
-                    <InfoBlock label="Aplicó" value={formatDate(selectedRecord.applied_at)} />
-                  </div>
-
-                  <div className="grid gap-4 rounded-[1.8rem] border bg-white/90 p-5 sm:grid-cols-2">
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                        Estado
-                      </span>
-                      <select
-                        value={selectedRecord.status}
-                        disabled={activeMutation === "status"}
-                        onChange={(event) => void handleQuickUpdate("status", event.target.value)}
-                        className="w-full rounded-2xl border bg-surface px-4 py-3 text-sm outline-none disabled:cursor-wait disabled:opacity-60"
-                      >
-                        {STATUS_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                        Etapa
-                      </span>
-                      <select
-                        value={selectedRecord.stage}
-                        disabled={activeMutation === "stage"}
-                        onChange={(event) => void handleQuickUpdate("stage", event.target.value)}
-                        className="w-full rounded-2xl border bg-surface px-4 py-3 text-sm outline-none disabled:cursor-wait disabled:opacity-60"
-                      >
-                        {STAGE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <InfoBlock label="Última actualización" value={formatDate(selectedRecord.updated_at)} />
-                    <InfoBlock label="Notas" value={String(selectedNotes.length)} />
-                  </div>
-
-                  <PanelCard>
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-900">Notas internas</h3>
-                        <p className="text-sm text-muted">
-                          Añade contexto para el equipo y elimina lo que ya no aporte valor.
-                        </p>
-                      </div>
-                    </div>
-
-                    <form onSubmit={handleAddNote} className="mt-4 space-y-3">
-                      <textarea
-                        value={noteDraft}
-                        onChange={(event) => setNoteDraft(event.target.value)}
-                        placeholder="Escribe una nota útil para el siguiente paso del proceso"
-                        rows={4}
-                        className="w-full rounded-3xl border bg-surface px-4 py-3 text-sm outline-none placeholder:text-slate-400"
-                      />
-                      <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={activeMutation === "adding-note" || !noteDraft.trim()}
-                          className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {activeMutation === "adding-note" ? "Guardando nota..." : "Añadir nota"}
-                        </button>
-                      </div>
-                    </form>
-
-                    <div className="mt-5 space-y-3">
-                      {selectedNotes.length === 0 ? (
-                        <div className="rounded-3xl border border-dashed border-slate-300 bg-surface px-4 py-6 text-sm text-muted">
-                          Esta candidatura aún no tiene notas internas.
-                        </div>
-                      ) : (
-                        selectedNotes.map((note) => (
-                          <article key={note.id} className="rounded-3xl border bg-surface p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <p className="text-sm leading-6 text-slate-700">{note.content}</p>
-                                <p className="mt-3 text-xs uppercase tracking-[0.14em] text-muted">
-                                  {formatDate(note.created_at)}
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => void handleDeleteNote(note.id)}
-                                disabled={activeMutation === `deleting-note-${note.id}`}
-                                className="rounded-2xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-danger hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          </article>
-                        ))
-                      )}
-                    </div>
-                  </PanelCard>
-                </div>
-              ) : (
-                <div className="flex h-full min-h-[420px] flex-col items-center justify-center px-6 py-16 text-center lg:px-8">
-                  <div className="max-w-sm space-y-3">
-                    <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-                      Selecciona una candidatura
-                    </h2>
-                    <p className="text-sm leading-6 text-muted">
-                      El detalle se abrirá aquí manteniendo visible el contexto del listado y sus filtros.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </section>
-          </div>
-        </section>
+  return <main className="min-h-screen px-4 py-6 sm:px-8 lg:px-12"><div className="mx-auto max-w-[1440px] space-y-6">
+    <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.24em] text-teal-700">TrackFlow Tech / Operaciones</p><h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950">Centro de incidencias</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Una vista compartida para detectar riesgo, asignar responsables y justificar cada decisión operativa.</p></div><button onClick={openCreate} className="rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-900/15 hover:bg-teal-800">+ Registrar incidencia</button></header>
+      <div className="flex flex-wrap items-center gap-3">
+        <FeedbackBanner feedback={listFeedback} className="flex-1" />
+        {listFeedback.tone === "error" && <button onClick={() => void refresh(selected?.id ?? initialRecordId ?? undefined)} className="rounded-lg border border-rose-300 px-4 py-3 text-sm font-semibold text-rose-800">Reintentar</button>}
       </div>
-
-      {formMode ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/35 px-4 py-6 backdrop-blur-sm sm:items-center">
-          <div className="w-full max-w-2xl rounded-[2rem] border border-white/70 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-                  {formMode.type === "create" ? "Nueva candidatura" : "Editar candidatura"}
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                  {formMode.type === "create"
-                    ? "Registrar nuevo perfil"
-                    : "Corregir datos del candidato"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFormMode(null)}
-                className="rounded-2xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Cerrar
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitForm} className="space-y-5 px-6 py-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="Nombre completo"
-                  value={formValues.full_name}
-                  onChange={(value) => setFormValues((current) => ({ ...current, full_name: value }))}
-                  required
-                />
-                <Field
-                  label="Email"
-                  type="email"
-                  value={formValues.email}
-                  onChange={(value) => setFormValues((current) => ({ ...current, email: value }))}
-                  required
-                />
-                <Field
-                  label="Teléfono"
-                  value={formValues.phone}
-                  onChange={(value) => setFormValues((current) => ({ ...current, phone: value }))}
-                  required
-                />
-                <Field
-                  label="Puesto"
-                  value={formValues.position}
-                  onChange={(value) => setFormValues((current) => ({ ...current, position: value }))}
-                  required
-                />
-                <Field
-                  label="LinkedIn"
-                  value={formValues.linkedin_url}
-                  onChange={(value) => setFormValues((current) => ({ ...current, linkedin_url: value }))}
-                />
-                <Field
-                  label="CV"
-                  value={formValues.cv_url}
-                  onChange={(value) => setFormValues((current) => ({ ...current, cv_url: value }))}
-                />
-                <Field
-                  label="Años de experiencia"
-                  type="number"
-                  step="0.5"
-                  value={formValues.experience_years}
-                  onChange={(value) =>
-                    setFormValues((current) => ({ ...current, experience_years: value }))
-                  }
-                  required
-                />
-              </div>
-
-              {formFeedback ? <FeedbackBanner feedback={formFeedback} /> : null}
-
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormMode(null)}
-                  className="rounded-2xl border px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={activeMutation === "saving-edit" || activeMutation === "saving-create"}
-                  className="rounded-2xl bg-accent px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-strong disabled:cursor-wait disabled:opacity-60"
-                >
-                  {activeMutation === "saving-edit" || activeMutation === "saving-create"
-                    ? "Guardando..."
-                    : formMode.type === "create"
-                      ? "Crear candidatura"
-                      : "Guardar cambios"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
-    </main>
-  );
+      <FeedbackBanner
+        feedback={actionFeedback}
+        actionLabel={retryAction === "save" ? "Volver al formulario" : retryAction ? "Reintentar" : undefined}
+        onAction={retryAction === "save" ? () => setShowForm(true) : retryAction === "change" && retryChange ? () => void change(retryChange.field, retryChange.value) : retryAction === "remove" ? () => void remove() : undefined}
+      />
+    <section className="grid gap-3 md:grid-cols-4">{counts.map((item) => <div key={item.value} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><span className={`h-2.5 w-2.5 rounded-full ${item.color}`} /><span className="text-2xl font-semibold text-slate-950">{item.count}</span></div><p className="mt-3 text-sm font-medium text-slate-600">{item.label}</p><p className="text-xs text-slate-400">Abiertas o en curso</p></div>)}</section>
+    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]"><div className="min-w-0 rounded-2xl border border-slate-200 bg-white"><div className="grid gap-3 border-b border-slate-200 p-4 md:grid-cols-[1fr_170px_170px_170px]"><input value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} placeholder="Buscar incidencia..." className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-600" />{([["severity", "Severidad"], ["status", "Estado"], ["location", "Almacén"]] as const).map(([key, label]) => <select key={key} value={filters[key]} onChange={(event) => updateFilter(key, event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"><option value="">{label}: Todas</option>{(key === "severity" ? SEVERITY_OPTIONS : key === "status" ? STATUS_OPTIONS : CATALOGS.locations).map((option) => { const value = typeof option === "string" ? option : option.value; return <option key={value} value={value}>{labels[value] ?? (typeof option === "string" ? option : option.label)}</option>; })}</select>)}</div><div className="divide-y divide-slate-100">{loading ? <p className="p-8 text-sm text-slate-500">Cargando incidencias...</p> : records.length === 0 ? <p className="p-8 text-sm text-slate-500">No hay incidencias con estos filtros.</p> : records.map((record) => <button key={record.id} onClick={() => setSelected(record)} className={`block w-full p-5 text-left hover:bg-slate-50 ${selected?.id === record.id ? "border-l-4 border-teal-600 bg-teal-50/40" : "border-l-4 border-transparent"}`}><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs text-slate-400">{record.id}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">{labels[record.status]}</span><span className="text-xs text-slate-400">{labels[record.warehouse_location ?? ""] ?? "Global"}</span></div><h2 className="mt-2 font-semibold text-slate-900">{record.title}</h2><p className="mt-1 line-clamp-1 text-sm text-slate-500">{record.description}</p></button>)}</div></div>
+    <aside className="rounded-2xl border border-slate-200 bg-slate-950 text-white">{selected ? <div className="flex h-full flex-col"><div className="border-b border-white/10 p-6"><div className="flex items-start justify-between gap-3"><div><p className="font-mono text-xs text-teal-300">{selected.id}</p><h2 className="mt-2 text-xl font-semibold">{selected.title}</h2></div><button onClick={remove} className="text-xs text-slate-400 hover:text-rose-300">Eliminar</button></div><p className="mt-4 text-sm leading-6 text-slate-300">{selected.description}</p></div><div className="grid gap-3 p-6 sm:grid-cols-2 xl:grid-cols-1"><Detail label="Severidad" value={labels[selected.severity]} /><Detail label="Tipo / canal" value={`${labels[selected.type]} · ${labels[selected.channel]}`} /><Detail label="Almacén / cliente" value={`${labels[selected.warehouse_location ?? ""] ?? "Global"} · ${selected.client_name ?? "Interno"}`} /><Detail label="Área responsable" value={labels[selected.responsible_area]} /></div><div className="space-y-3 border-t border-white/10 p-6"><label className="block text-xs font-semibold uppercase tracking-widest text-slate-400">Estado<select value={selected.status} onChange={(event) => void change("status", event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm text-white"><option className="text-slate-900" value="open">Abierta</option>{STATUS_OPTIONS.slice(1).map((option) => <option className="text-slate-900" key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="block text-xs font-semibold uppercase tracking-widest text-slate-400">Responsable<input value={selected.assigned_to} onChange={(event) => void change("assigned_to", event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm text-white" /></label><button onClick={openEdit} className="w-full rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold hover:bg-white/10">Editar incidencia</button></div><div className="flex-1 border-t border-white/10 p-6"><h3 className="text-sm font-semibold">Historial de auditoría</h3>{selected.audit.length === 0 ? <p className="mt-3 text-xs text-slate-400">Sin cambios registrados todavía.</p> : <div className="mt-3 space-y-3">{selected.audit.slice().reverse().map((entry) => <div key={entry.id} className="border-l border-teal-400 pl-3 text-xs"><p className="font-medium text-slate-200">{labels[entry.field] ?? entry.field}: {labels[entry.from ?? ""] ?? entry.from ?? "vacío"} → {labels[entry.to] ?? entry.to}</p><p className="mt-1 text-slate-500">{entry.author} · {new Date(entry.created_at).toLocaleString("es-ES")}</p></div>)}</div>}</div></div> : <div className="flex min-h-[420px] items-center justify-center p-8 text-center text-sm text-slate-400">Selecciona una incidencia para ver su detalle y trazabilidad.</div>}</aside></section>
+    {showForm && <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-950/40 p-4"><form id="incident-form" onSubmit={submit} className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"><div className="flex items-center justify-between"><h2 className="text-xl font-semibold">{selected ? "Editar incidencia" : "Registrar incidencia"}</h2><button type="button" onClick={() => setShowForm(false)} className="text-2xl text-slate-400">×</button></div><div className="grid gap-4 md:grid-cols-2"><Field label="Título" value={form.title} required onChange={(value) => setForm({ ...form, title: value })} /><Field label="Cliente (opcional)" value={form.client_name ?? ""} onChange={(value) => setForm({ ...form, client_name: value })} /><Field label="Descripción" value={form.description} required onChange={(value) => setForm({ ...form, description: value })} /><Field label="Responsable" value={form.assigned_to} required onChange={(value) => setForm({ ...form, assigned_to: value })} />{(["type", "channel", "severity", "responsible_area", "warehouse_location"] as const).map((key) => <label key={key} className="text-xs font-semibold uppercase tracking-widest text-slate-500">{key.replaceAll("_", " ")}<select value={form[key] ?? ""} required={key !== "warehouse_location"} onChange={(event) => setForm({ ...form, [key]: event.target.value } as IncidentFormValues)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-800"><option value="">{key === "warehouse_location" ? "Global / sin almacén" : "Selecciona..."}</option>{(key === "type" ? CATALOGS.types : key === "channel" ? CATALOGS.channels : key === "responsible_area" ? CATALOGS.areas : key === "severity" ? SEVERITY_OPTIONS : CATALOGS.locations).map((option) => { const value = typeof option === "string" ? option : option.value; return <option key={value} value={value}>{labels[value] ?? (typeof option === "string" ? option : option.label)}</option>; })}</select></label>)}</div><div className="flex justify-end gap-3"><button type="button" onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 text-sm text-slate-600">Cancelar</button><button className="rounded-lg bg-teal-700 px-5 py-2 text-sm font-semibold text-white">Guardar</button></div></form></div>}
+  </div></main>;
 }
+
+function Field({ label, value, onChange, required }: { label: string; value: string; onChange: (value: string) => void; required?: boolean }) { return <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">{label}<input required={required} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal normal-case text-slate-800" /></label>; }
+function Detail({ label, value }: { label: string; value?: string | null }) { return <div><p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">{label}</p><p className="mt-1 text-sm text-slate-200">{value || "Sin especificar"}</p></div>; }

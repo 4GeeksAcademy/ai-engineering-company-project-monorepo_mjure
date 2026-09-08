@@ -1,0 +1,20 @@
+1:"$Sreact.fragment"
+2:I[22016,["/_next/static/chunks/1mpnoxox0-4cg.js"],""]
+3:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"OutletBoundary"]
+4:"$Sreact.suspense"
+8:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"ViewportBoundary"]
+9:I[97367,["/_next/static/chunks/1mpnoxox0-4cg.js"],"MetadataBoundary"]
+a:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
+c:I[39756,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
+d:I[37457,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default"]
+:HL["/_next/static/chunks/1g55cjjktc21d.css","style"]
+7:X
+0:{"buildId":"Bc7JoJ-srVPqR8bqOVJEP","data":[{"rsc":["$","$1","c",{"children":[["$","main",null,{"className":"container","children":["$","section",null,{"className":"hero","children":[["$","span",null,{"className":"eyebrow","children":"TRACKFLOW DIGITAL"}],["$","h1",null,{"children":"Backoffice operativo"}],["$","p",null,{"children":"Herramientas internas para gestión y análisis de operaciones."}],["$","$L2",null,{"href":"/incidents","className":"button","children":"Analizar incidencias"}]]}]}],null,["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"isPartial":"$@6","staleTime":"$7","varyParams":null},{"rsc":["$","$1","h",{"children":[null,["$","$L8",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L9",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"TrackFlow Backoffice"}],["$","meta","1",{"name":"description","content":"Panel interno de Trackflow"}],["$","link","2",{"rel":"icon","href":"/favicon.ico?favicon.2vob68tjqpejf.ico","sizes":"256x256","type":"image/x-icon"}],["$","$La","3",{}]]}]}]}],null]}],"isPartial":"$@b","staleTime":"$7","varyParams":null},{"rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/1g55cjjktc21d.css","precedence":"next"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true}]],["$","html",null,{"lang":"es","children":["$","body",null,{"children":[["$","nav",null,{"className":"navbar","children":["$","div",null,{"className":"navContent","children":[["$","$L2",null,{"href":"/","className":"logo","children":"TRACKFLOW"}],["$","div",null,{"className":"navLinks","children":[["$","$L2",null,{"href":"/","children":"Inicio"}],["$","$L2",null,{"href":"/incidents","children":"Incidencias"}]]}]]}]}],["$","$Lc",null,{"parallelRouterKey":"children","template":["$","$Ld",null,{}],"notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]]}]]}]}]]}],"isPartial":"$@e","staleTime":"$7","varyParams":null}],"isUpgradeableISRFallback":false,"a":"$@f","rootVaryParams":null,"needsRuntimeRequest":"$@10"}
+5:null
+7:300
+10:true
+7:C
+f:0
+b:"$undefined"
+e:"$undefined"
+6:"$undefined"
