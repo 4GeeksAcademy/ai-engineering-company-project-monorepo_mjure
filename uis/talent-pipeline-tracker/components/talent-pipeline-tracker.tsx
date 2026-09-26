@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createRecord, deleteRecord, fetchRecords, updateIncident } from "@/lib/tracker-api";
 import { CATALOGS, EMPTY_FORM, SEVERITY_OPTIONS, STATUS_OPTIONS } from "@/lib/tracker-config";
 import { FeedbackBanner } from "@/components/tracker-ui";
+import { logout } from "@/lib/auth-api";
 import type { AsyncFeedback, Incident, IncidentFormValues, TrackerFilters } from "@/types/tracker";
 
 const labels: Record<string, string> = {
@@ -112,7 +113,7 @@ export function TalentPipelineTracker({ initialRecordId }: { initialRecordId?: s
   const counts = SEVERITY_OPTIONS.map((option) => ({ ...option, count: records.filter((record) => record.severity === option.value && !["closed", "resolved"].includes(record.status)).length }));
 
   return <main className="min-h-screen px-4 py-6 sm:px-8 lg:px-12"><div className="mx-auto max-w-[1440px] space-y-6">
-    <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.24em] text-teal-700">TrackFlow Tech / Operaciones</p><h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950">Centro de incidencias</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Una vista compartida para detectar riesgo, asignar responsables y justificar cada decisión operativa.</p></div><button onClick={openCreate} className="rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-900/15 hover:bg-teal-800">+ Registrar incidencia</button></header>
+    <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.24em] text-teal-700">TrackFlow Tech / Operaciones</p><h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950">Centro de incidencias</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Una vista compartida para detectar riesgo, asignar responsables y justificar cada decisión operativa.</p></div><div className="flex flex-wrap gap-2"><button onClick={() => { window.location.assign("/account/profile"); }} className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700">Mi perfil</button><button onClick={logout} className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700">Cerrar sesión</button><button onClick={openCreate} className="rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-900/15 hover:bg-teal-800">+ Registrar incidencia</button></div></header>
       <div className="flex flex-wrap items-center gap-3">
         <FeedbackBanner feedback={listFeedback} className="flex-1" />
         {listFeedback.tone === "error" && <button onClick={() => void refresh(selected?.id ?? initialRecordId ?? undefined)} className="rounded-lg border border-rose-300 px-4 py-3 text-sm font-semibold text-rose-800">Reintentar</button>}
