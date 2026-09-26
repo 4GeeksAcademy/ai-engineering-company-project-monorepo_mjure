@@ -1,0 +1,14 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { AuthGuard } from "@/components/auth-guard";
+import { changePassword } from "@/lib/auth-api";
+
+export default function ChangePasswordPage() { return <AuthGuard><ChangePasswordContent /></AuthGuard>; }
+function ChangePasswordContent() {
+  const [current, setCurrent] = useState(""); const [next, setNext] = useState(""); const [confirmation, setConfirmation] = useState(""); const [feedback, setFeedback] = useState(""); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
+  async function submit(event: FormEvent) { event.preventDefault(); setFeedback(""); setError(""); if (next.length < 6) { setError("La nueva contraseña debe tener al menos 6 caracteres."); return; } if (next !== confirmation) { setError("Las contraseñas no coinciden."); return; } setLoading(true); try { await changePassword(current, next); setCurrent(""); setNext(""); setConfirmation(""); setFeedback("Contraseña actualizada correctamente."); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo cambiar la contraseña."); } finally { setLoading(false); } }
+  return <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-8"><div className="mx-auto max-w-2xl"><Link href="/account/profile" className="text-sm font-semibold text-teal-700">← Mi perfil</Link><section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h1 className="text-2xl font-semibold text-slate-950">Cambiar contraseña</h1><form onSubmit={submit} className="mt-8 space-y-4"><PasswordField label="Contraseña actual" value={current} onChange={setCurrent} /><PasswordField label="Nueva contraseña" value={next} onChange={setNext} /><PasswordField label="Confirmar contraseña" value={confirmation} onChange={setConfirmation} />{feedback && <p role="status" className="text-sm text-emerald-700">{feedback}</p>}{error && <p role="alert" className="text-sm text-rose-700">{error}</p>}<button disabled={loading} className="rounded-lg bg-teal-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{loading ? "Guardando..." : "Actualizar contraseña"}</button></form></section></div></main>;
+}
+function PasswordField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <label className="block text-sm font-semibold text-slate-700">{label}<input type="password" required minLength={6} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-3 font-normal outline-none focus:border-teal-600" /></label>; }
