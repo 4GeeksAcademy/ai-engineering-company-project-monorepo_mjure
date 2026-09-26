@@ -13,7 +13,7 @@ function redirectToLogin() { if (typeof window !== "undefined" && !window.locati
 
 async function request<T>(path: string, init: RequestInit = {}, protectedRequest = true): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  if (!headers.has("Content-Type")) headers.set("Content-Type", init.body instanceof URLSearchParams ? "application/x-www-form-urlencoded" : "application/json");
   const token = getToken();
   if (protectedRequest && token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${AUTH_API_BASE}${path}`, { ...init, headers });
@@ -35,7 +35,8 @@ function tokenFromResponse(response: { token?: string; access_token?: string }) 
 }
 
 export async function login(email: string, password: string) {
-  const response = await request<{ token?: string; access_token?: string }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }, false);
+  const body = new URLSearchParams({ username: email, password });
+  const response = await request<{ token?: string; access_token?: string }>("/auth/login", { method: "POST", body }, false);
   const token = tokenFromResponse(response); storeToken(token); return token;
 }
 export async function register(payload: { email: string; password: string; name?: string; phone?: string; address?: string }) {
@@ -44,4 +45,7 @@ export async function register(payload: { email: string; password: string; name?
 }
 export function getCurrentUser() { return request<CurrentUser>("/auth/me"); }
 export function updateProfile(profile: UserProfile) { return request<UserProfile>("/profiles/me", { method: "PUT", body: JSON.stringify(profile) }); }
+export function forgotPassword(email: string) { return request<{ message: string }>("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }, false); }
+export function resetPassword(token: string, newPassword: string) { return request<{ message: string }>("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, new_password: newPassword }) }, false); }
+export function changePassword(currentPassword: string, newPassword: string) { return request<{ message: string }>("/auth/change-password", { method: "POST", body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) }); }
 export function logout() { clearToken(); redirectToLogin(); }
