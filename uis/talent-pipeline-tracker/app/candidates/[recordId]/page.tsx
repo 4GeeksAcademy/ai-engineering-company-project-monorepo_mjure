@@ -1,4 +1,5 @@
 import { TalentPipelineTracker } from "@/components/talent-pipeline-tracker";
+import { AuthGuard } from "@/components/auth-guard";
 
 export default async function CandidatePage({
   params,
@@ -7,5 +8,5 @@ export default async function CandidatePage({
 }) {
   const { recordId } = await params;
 
-  return <TalentPipelineTracker initialRecordId={recordId} />;
+  return <AuthGuard><TalentPipelineTracker initialRecordId={recordId} /></AuthGuard>;
 }

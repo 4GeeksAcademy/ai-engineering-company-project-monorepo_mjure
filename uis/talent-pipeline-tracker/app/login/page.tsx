@@ -1,0 +1,13 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { login } from "@/lib/auth-api";
+
+export default function LoginPage() {
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
+  async function submit(event: FormEvent) { event.preventDefault(); setError(""); setLoading(true); try { await login(email, password); window.location.assign("/"); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo iniciar sesión."); } finally { setLoading(false); } }
+  return <AuthLayout title="Inicia sesión" subtitle="Accede al centro operativo de TrackFlow."><form onSubmit={submit} className="space-y-4"><Field label="Email" type="email" value={email} onChange={setEmail} required /><Field label="Contraseña" type="password" value={password} onChange={setPassword} required />{error && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<button disabled={loading} className="w-full rounded-lg bg-teal-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">{loading ? "Entrando..." : "Iniciar sesión"}</button><p className="text-center text-sm text-slate-500">¿No tienes cuenta? <Link className="font-semibold text-teal-700" href="/register">Regístrate</Link></p></form></AuthLayout>;
+}
+function Field({ label, type, value, onChange, required }: { label: string; type: string; value: string; onChange: (value: string) => void; required?: boolean }) { return <label className="block text-sm font-semibold text-slate-700">{label}<input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-3 font-normal outline-none focus:border-teal-600" /></label>; }
+export function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) { return <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4"><section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl"><p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-700">TrackFlow Tech</p><h1 className="mt-5 text-3xl font-semibold text-slate-950">{title}</h1><p className="mt-2 mb-8 text-sm text-slate-500">{subtitle}</p>{children}</section></main>; }
