@@ -1,0 +1,20 @@
+[project]
+name = "auth-api"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "tinydb",
+    "python-dotenv",
+    "python-jose",
+    "passlib[bcrypt]",
+    # passlib 1.7.4 es incompatible con bcrypt >= 4.1
+    "bcrypt<4.1",
+    "python-multipart",
+    "sqlmodel",
+    "psycopg2-binary>=2.9.13",
+]
+
+[tool.uv]
+package = false
