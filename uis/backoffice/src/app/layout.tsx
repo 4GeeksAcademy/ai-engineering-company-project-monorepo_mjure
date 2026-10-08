@@ -52,15 +52,15 @@ export default function RootLayout({
 
 
             <div className="navLinks">
-
               <Link href="/">
                 Inicio
               </Link>
-
               <Link href="/incidents">
                 Incidencias
               </Link>
-
+              <Link href="/login" className="navLogin">
+                Iniciar sesión
+              </Link>
             </div>
 
           </div>

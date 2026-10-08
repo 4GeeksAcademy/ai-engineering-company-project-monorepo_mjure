@@ -1,3 +1,12 @@
+:root {
+  --ink: #1b2924;
+  --muted: #65736c;
+  --paper: #f3f5f1;
+  --surface: #ffffff;
+  --line: #dce3dc;
+  --accent: #d8ef8a;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -11,16 +20,9 @@ body {
 
 
 body {
-  font-family:
-    Arial,
-    Helvetica,
-    sans-serif;
-
-  background:
-    #f4f5f7;
-
-  color:
-    #1c2128;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
 }
 
 
@@ -38,24 +40,15 @@ input {
 
 
 .navbar {
-  background:
-    #181b20;
-
-  color:
-    white;
+  background: var(--ink);
+  color: white;
 }
 
 
 .navContent {
-  width:
-    min(
-      1100px,
-      92%
-    );
-
+  width: min(1100px, 92%);
   height:
     68px;
-
   margin:
     auto;
 
@@ -73,18 +66,16 @@ input {
 .logo {
   font-weight:
     800;
-
-  letter-spacing:
-    1.5px;
+  letter-spacing: 1.5px;
 }
 
 
 .navLinks {
   display:
     flex;
-
   gap:
     24px;
+  align-items: center;
 }
 
 
@@ -97,6 +88,15 @@ input {
 .navLinks a:hover {
   opacity:
     1;
+}
+
+.navLinks .navLogin {
+  padding: 9px 14px;
+  border-radius: 5px;
+  background: var(--accent);
+  color: var(--ink);
+  font-weight: 700;
+  opacity: 1;
 }
 
 
@@ -115,6 +115,128 @@ input {
 .hero {
   padding:
     70px 0;
+}
+
+.homeHero {
+  background: var(--ink);
+  color: white;
+}
+
+.homeHeroInner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(250px, 0.6fr);
+  align-items: center;
+  gap: 64px;
+  width: min(1100px, 92%);
+  min-height: 390px;
+  margin: 0 auto;
+  padding: 64px 0;
+}
+
+.homeIntro {
+  max-width: 680px;
+}
+
+.homeKicker,
+.homeModulesLabel {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.homeIntro h1 {
+  margin: 22px 0 16px;
+  font-size: 48px;
+  font-weight: 650;
+  line-height: 1.08;
+}
+
+.homeIntro p {
+  max-width: 470px;
+  margin: 0;
+  color: #c4cec8;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.homeActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-top: 28px;
+}
+
+.homeLoginButton {
+  margin: 0;
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.homeSecondaryLink {
+  padding: 10px 0;
+  color: white;
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-color: #819087;
+  text-underline-offset: 5px;
+}
+
+.homeModules {
+  border-left: 1px solid #53615a;
+  padding-left: 28px;
+}
+
+.homeModulesLabel {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.homeModule {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  border-bottom: 1px solid #53615a;
+}
+
+.homeModuleNumber,
+.homeModuleAccess {
+  color: #b7c2bb;
+  font-size: 12px;
+}
+
+.homeModuleName {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.homeModule:hover .homeModuleAccess {
+  color: var(--accent);
+}
+
+.homeFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: min(1100px, 92%);
+  margin: 0 auto;
+  padding: 26px 0;
+}
+
+.homeFooter span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.homeFooter p {
+  margin: 0;
+  color: var(--muted);
 }
 
 
@@ -161,8 +283,7 @@ button {
   border:
     0;
 
-  border-radius:
-    8px;
+  border-radius: 5px;
 
   background:
     #1f2328;
@@ -178,6 +299,12 @@ button {
 
   cursor:
     pointer;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.button:hover,
+button:not(:disabled):hover {
+  transform: translateY(-1px);
 }
 
 
@@ -197,14 +324,9 @@ button:disabled {
 
 
 .card {
-  background:
-    white;
-
-  border:
-    1px solid #e5e7eb;
-
-  border-radius:
-    14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
 
   padding:
     24px;
@@ -212,14 +334,33 @@ button:disabled {
   margin-bottom:
     20px;
 
-  box-shadow:
-    0 5px 20px
-    rgba(
-      0,
-      0,
-      0,
-      0.04
-    );
+  box-shadow: 0 8px 28px rgba(27, 41, 36, 0.05);
+}
+
+label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #cbd5ce;
+  border-radius: 5px;
+  padding: 10px 12px;
+  background: white;
+  color: var(--ink);
+}
+
+input:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid #93b857;
+  outline-offset: 3px;
 }
 
 
@@ -449,6 +590,29 @@ button:disabled {
   max-width: 750px
 ) {
 
+  .homeHeroInner {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    min-height: 0;
+    padding: 46px 0;
+  }
+
+  .homeIntro h1 {
+    font-size: 38px;
+  }
+
+  .homeModules {
+    border-top: 1px solid #53615a;
+    border-left: 0;
+    padding: 22px 0 0;
+  }
+
+  .homeFooter {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
   .metrics {
     grid-template-columns:
       1fr 1fr;
@@ -479,6 +643,12 @@ button:disabled {
 
     gap:
       14px;
+  }
+
+  .navLinks {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
   }
 
 
