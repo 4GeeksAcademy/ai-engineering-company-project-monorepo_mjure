@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from auth import get_current_user
+from schemas import ProfileResponse
 from services import get_profile_by_user_id, update_profile
 
 router = APIRouter()
@@ -15,11 +16,11 @@ class ProfileUpdate(BaseModel):
     address: Optional[str] = None
 
 
-@router.get("/profiles/me")
+@router.get("/profiles/me", response_model=ProfileResponse)
 def get_my_profile(user: dict = Depends(get_current_user)):
     return get_profile_by_user_id(user["id"]) or {"user_id": user["id"], "name": None, "phone": None, "address": None}
 
 
-@router.put("/profiles/me")
+@router.put("/profiles/me", response_model=ProfileResponse)
 def edit_my_profile(payload: ProfileUpdate, user: dict = Depends(get_current_user)):
     return update_profile(user["id"], payload.model_dump(exclude_unset=True))

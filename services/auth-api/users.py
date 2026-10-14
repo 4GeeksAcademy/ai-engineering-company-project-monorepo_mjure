@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from passlib.hash import bcrypt
 from pydantic import BaseModel, Field
 
+from schemas import UserRegistrationResponse
 from services import create_user, get_user_by_email, update_profile
 
 router = APIRouter()
@@ -18,7 +19,7 @@ class UserCreate(BaseModel):
     address: str | None = None
 
 
-@router.post("/users", status_code=201)
+@router.post("/users", response_model=UserRegistrationResponse, status_code=201)
 def register(payload: UserCreate):
     if get_user_by_email(payload.email):
         raise HTTPException(status_code=400, detail="El email ya está registrado")

@@ -16,5 +16,11 @@ dependencies = [
     "psycopg2-binary>=2.9.13",
 ]
 
+[project.optional-dependencies]
+test = [
+    "httpx",
+    "pytest",
+]
+
 [tool.uv]
 package = false

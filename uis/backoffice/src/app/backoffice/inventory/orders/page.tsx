@@ -59,7 +59,6 @@ function OrdersContent() {
                 <th>Cantidad</th>
                 <th>Tipo</th>
                 <th>Fecha</th>
-                <th>user_uuid</th>
               </tr>
             </thead>
             <tbody>
@@ -79,7 +78,6 @@ function OrdersContent() {
                     </span>
                   </td>
                   <td>{new Date(order.created_at).toLocaleString("es-AR")}</td>
-                  <td>{order.user_uuid}</td>
                 </tr>
               ))}
             </tbody>

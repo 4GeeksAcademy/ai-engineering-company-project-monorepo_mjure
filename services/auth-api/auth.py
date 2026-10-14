@@ -13,6 +13,7 @@ from jose import JWTError, jwt
 from passlib.hash import bcrypt
 from pydantic import BaseModel, Field
 
+from schemas import AccessTokenResponse, CurrentUserResponse, MessageResponse
 from services import (consume_reset_token, create_reset_token, get_profile_by_user_id,
                       get_reset_token, get_user_by_email, get_user_by_id, update_user)
 
@@ -83,7 +84,7 @@ def _send_reset_email(email: str, reset_url: str):
         raise RuntimeError("No se pudo enviar el email de restablecimiento") from error
 
 
-@router.post("/auth/login")
+@router.post("/auth/login", response_model=AccessTokenResponse)
 def login(form: OAuth2PasswordRequestForm = Depends()):
     user = get_user_by_email(form.username)
     if not user or not bcrypt.verify(form.password, user["hashed_password"]):
@@ -91,12 +92,12 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
     return {"access_token": create_access_token(user["id"]), "token_type": "bearer"}
 
 
-@router.get("/auth/me")
+@router.get("/auth/me", response_model=CurrentUserResponse)
 def get_me(user: dict = Depends(get_current_user)):
     return _user_response(user)
 
 
-@router.post("/auth/forgot-password")
+@router.post("/auth/forgot-password", response_model=MessageResponse)
 def forgot_password(payload: ForgotPasswordRequest):
     user = get_user_by_email(payload.email)
     if user:
@@ -110,7 +111,7 @@ def forgot_password(payload: ForgotPasswordRequest):
     return {"message": "Si esa dirección está registrada, recibirás un enlace en breve."}
 
 
-@router.post("/auth/reset-password")
+@router.post("/auth/reset-password", response_model=MessageResponse)
 def reset_password(payload: ResetPasswordRequest):
     token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
     record = get_reset_token(token_hash)
@@ -122,7 +123,7 @@ def reset_password(payload: ResetPasswordRequest):
     return {"message": "Contraseña actualizada correctamente"}
 
 
-@router.post("/auth/change-password")
+@router.post("/auth/change-password", response_model=MessageResponse)
 def change_password(payload: ChangePasswordRequest, user: dict = Depends(get_current_user)):
     if not bcrypt.verify(payload.current_password, user["hashed_password"]):
         raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")

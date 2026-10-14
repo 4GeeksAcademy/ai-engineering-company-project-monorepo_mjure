@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel
+from sqlmodel import Field, SQLModel
 
 
 class StockResponse(SQLModel):
@@ -14,7 +14,7 @@ class StockByWarehouseResponse(SQLModel):
 class InventoryAlertCreate(SQLModel):
     sku: str
     warehouse: str
-    threshold: int
+    threshold: int = Field(ge=0)
 
 
 class InventoryAlertResponse(InventoryAlertCreate):

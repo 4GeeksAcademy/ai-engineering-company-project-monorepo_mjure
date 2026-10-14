@@ -10,6 +10,7 @@ from schemas import (
     StockEntryResponse,
     StockExitCreate,
     StockExitResponse,
+    OrderResponse,
 )
 
 # Ajustá solamente este import a la ubicación REAL de tu auth existente.
@@ -171,7 +172,7 @@ def create_outbound_order(
     return StockExitResponse.model_validate(order)
 
 
-@router.get("/orders")
+@router.get("/orders", response_model=list[OrderResponse])
 def get_orders(
     db: Session = Depends(get_db),
 ):
@@ -202,7 +203,6 @@ def get_orders(
             "movement_type": "inbound",
             "quantity": entry.quantity,
             "created_at": entry.created_at,
-            "user_uuid": entry.user_uuid,
             "sku": {
                 "id": sku.id,
                 "name": sku.name,
@@ -219,7 +219,6 @@ def get_orders(
             "movement_type": "outbound",
             "quantity": exit_order.quantity,
             "created_at": exit_order.created_at,
-            "user_uuid": exit_order.user_uuid,
             "sku": {
                 "id": sku.id,
                 "name": sku.name,

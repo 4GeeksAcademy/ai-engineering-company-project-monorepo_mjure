@@ -28,13 +28,11 @@ export type StockExitCreate = {
 export type StockEntryResponse = StockEntryCreate & {
   id: number;
   created_at: string;
-  user_uuid: string;
 };
 
 export type StockExitResponse = StockExitCreate & {
   id: number;
   created_at: string;
-  user_uuid: string;
 };
 
 export type StockMovement = {
@@ -42,6 +40,5 @@ export type StockMovement = {
   movement_type: "inbound" | "outbound";
   quantity: number;
   created_at: string;
-  user_uuid: string;
   sku: Omit<SKU, "current_stock">;
 };

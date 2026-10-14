@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -15,6 +15,35 @@ class SKUCreate(BaseModel):
 class SKUResponse(SKUCreate):
     id: int
     current_stock: int
+
+
+class AccessTokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"]
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class ProfileResponse(BaseModel):
+    name: str | None = None
+    phone: str | None = None
+    address: str | None = None
+
+
+class CurrentUserResponse(BaseModel):
+    id: str
+    email: str
+    is_active: bool
+    role: str
+    profile: ProfileResponse | None = None
+
+
+class UserRegistrationResponse(BaseModel):
+    id: str
+    is_active: bool
+    role: str
 
 
 class StockEntryCreate(BaseModel):
@@ -48,7 +77,6 @@ class StockExitCreate(BaseModel):
 class StockEntryResponse(StockEntryCreate):
     id: int
     created_at: datetime
-    user_uuid: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,15 +84,17 @@ class StockEntryResponse(StockEntryCreate):
 class StockExitResponse(StockExitCreate):
     id: int
     created_at: datetime
-    user_uuid: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
+class SKUOrderResponse(SKUCreate):
+    id: int
+
+
 class OrderResponse(BaseModel):
     id: int
-    movement_type: str
+    movement_type: Literal["inbound", "outbound"]
     quantity: int
     created_at: datetime
-    user_uuid: str
-    product: SKUResponse
+    sku: SKUOrderResponse

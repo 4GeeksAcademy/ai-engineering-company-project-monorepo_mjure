@@ -2,6 +2,7 @@ import os
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from app.api.v1.router import api_router as trackflow_api_router
 from app.shared.db.session import create_db_and_tables as create_trackflow_tables
@@ -30,6 +31,10 @@ app.include_router(
 )
 
 
-@app.get("/")
+class HomeResponse(BaseModel):
+    status: str
+
+
+@app.get("/", response_model=HomeResponse)
 def home():
     return {"status": "ok"}
