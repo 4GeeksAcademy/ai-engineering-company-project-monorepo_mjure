@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
 
 import InventoryNav from "@/components/inventory/InventoryNav";
 import RequireAuth from "@/components/inventory/RequireAuth";
 import { listOrders } from "@/lib/inventory";
 import type { StockMovement } from "@/types/inventory";
 import styles from "@/app/backoffice/inventory/inventory.module.css";
+
+const OrdersTable = dynamic(
+  () => import("@/components/inventory/OrdersTable"),
+  { loading: () => <p>Cargando tabla...</p> }
+);
 
 export default function OrdersPage() {
   return (
@@ -20,6 +26,23 @@ function OrdersContent() {
   const [orders, setOrders] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const movementSummary = useMemo(
+    () =>
+      orders.reduce(
+        (summary, order) => {
+          if (order.movement_type === "inbound") {
+            summary.inboundCount += 1;
+            summary.inboundUnits += order.quantity;
+          } else {
+            summary.outboundCount += 1;
+            summary.outboundUnits += order.quantity;
+          }
+          return summary;
+        },
+        { inboundCount: 0, inboundUnits: 0, outboundCount: 0, outboundUnits: 0 }
+      ),
+    [orders]
+  );
 
   useEffect(() => {
     let active = true;
@@ -51,38 +74,12 @@ function OrdersContent() {
       {error && <div className={styles.error}>{error}</div>}
 
       {!loading && !error && (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Cantidad</th>
-                <th>Tipo</th>
-                <th>Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={`${order.movement_type}-${order.id}`}>
-                  <td>{order.sku.name}</td>
-                  <td>{order.quantity}</td>
-                  <td>
-                    <span
-                      className={`${styles.tag} ${
-                        order.movement_type === "inbound"
-                          ? styles.inbound
-                          : styles.outbound
-                      }`}
-                    >
-                      {order.movement_type === "inbound" ? "Entrada" : "Salida"}
-                    </span>
-                  </td>
-                  <td>{new Date(order.created_at).toLocaleString("es-AR")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <p className={styles.muted}>
+            Entradas: {movementSummary.inboundCount} ({movementSummary.inboundUnits} unidades) | Salidas: {movementSummary.outboundCount} ({movementSummary.outboundUnits} unidades)
+          </p>
+          <OrdersTable orders={orders} />
+        </>
       )}
     </main>
   );

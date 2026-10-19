@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import InventoryNav from "@/components/inventory/InventoryNav";
 import RequireAuth from "@/components/inventory/RequireAuth";
@@ -53,13 +53,9 @@ function OutboundContent() {
   }, []);
 
   useEffect(() => {
-    if (!productId) {
-      setCurrentStock(null);
-      return;
-    }
+    if (!productId) return;
 
     let active = true;
-    setQuantityError("");
 
     getProduct(Number(productId))
       .then((product) => {
@@ -76,10 +72,10 @@ function OutboundContent() {
     };
   }, [productId]);
 
-  const exceedsStock = useMemo(() => {
-    if (quantity === "" || currentStock === null) return false;
-    return Number(quantity) > currentStock;
-  }, [quantity, currentStock]);
+  const exceedsStock =
+    quantity !== "" &&
+    currentStock !== null &&
+    Number(quantity) > currentStock;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -134,7 +130,11 @@ function OutboundContent() {
           <span>SKU</span>
           <select
             value={productId}
-            onChange={(event) => setProductId(event.target.value)}
+            onChange={(event) => {
+              setProductId(event.target.value);
+              setCurrentStock(null);
+              setQuantityError("");
+            }}
             required
           >
             <option value="">Seleccioná...</option>

@@ -1,26 +1,34 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { getAuthToken, LOGIN_PATH } from "@/lib/auth";
 
+function subscribeToAuthToken(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+}
+
+function getServerAuthToken() {
+  return null;
+}
+
 export default function RequireAuth({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const token = useSyncExternalStore(
+    subscribeToAuthToken,
+    getAuthToken,
+    getServerAuthToken
+  );
 
   useEffect(() => {
-    const token = getAuthToken();
-
     if (!token) {
       router.replace(LOGIN_PATH);
-      return;
     }
+  }, [router, token]);
 
-    setReady(true);
-  }, [router]);
-
-  if (!ready) {
+  if (!token) {
     return <p>Verificando sesión...</p>;
   }
 

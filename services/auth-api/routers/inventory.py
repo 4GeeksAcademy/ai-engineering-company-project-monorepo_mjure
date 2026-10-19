@@ -1,3 +1,6 @@
+import threading
+import time
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, func, select
 
@@ -21,6 +24,44 @@ router = APIRouter(
     tags=["inventory"],
     dependencies=[Depends(get_current_user)],
 )
+
+_CACHE_TTL_SECONDS = 15
+_inventory_cache: dict[tuple[str, str], tuple[float, list]] = {}
+_inventory_cache_lock = threading.Lock()
+
+
+def _get_cached_inventory(user_id: str, resource: str):
+    key = (user_id, resource)
+    with _inventory_cache_lock:
+        cached = _inventory_cache.get(key)
+        if cached is None:
+            return None
+        expires_at, value = cached
+        if expires_at <= time.monotonic():
+            del _inventory_cache[key]
+            return None
+        return value
+
+
+def _cache_inventory(user_id: str, resource: str, value: list):
+    now = time.monotonic()
+    with _inventory_cache_lock:
+        expired_keys = [
+            key
+            for key, (expires_at, _) in _inventory_cache.items()
+            if expires_at <= now
+        ]
+        for key in expired_keys:
+            del _inventory_cache[key]
+        _inventory_cache[(user_id, resource)] = (
+            now + _CACHE_TTL_SECONDS,
+            value,
+        )
+
+
+def _invalidate_inventory_cache():
+    with _inventory_cache_lock:
+        _inventory_cache.clear()
 
 def calculate_stock(
     db: Session,
@@ -48,7 +89,15 @@ def calculate_stock(
 
 
 @router.get("/products", response_model=list[SKUResponse])
-def get_products(db: Session = Depends(get_db)):
+def get_products(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    user_id = str(current_user["id"])
+    cached_products = _get_cached_inventory(user_id, "products")
+    if cached_products is not None:
+        return cached_products
+
     products = db.exec(select(SKU)).all()
 
     response = []
@@ -72,6 +121,7 @@ def get_products(db: Session = Depends(get_db)):
             )
         )
 
+    _cache_inventory(user_id, "products", response)
     return response
 
 @router.post("/products", response_model=SKUResponse)
@@ -85,6 +135,7 @@ def create_product(
     db.add(product)
     db.commit()
     db.refresh(product)
+    _invalidate_inventory_cache()
 
     return SKUResponse(
         id=product.id,
@@ -134,6 +185,7 @@ def create_inbound_order(
     db.add(order)
     db.commit()
     db.refresh(order)
+    _invalidate_inventory_cache()
 
     return StockEntryResponse.model_validate(order)
 
@@ -168,6 +220,7 @@ def create_outbound_order(
     db.add(order)
     db.commit()
     db.refresh(order)
+    _invalidate_inventory_cache()
 
     return StockExitResponse.model_validate(order)
 
@@ -175,7 +228,13 @@ def create_outbound_order(
 @router.get("/orders", response_model=list[OrderResponse])
 def get_orders(
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
+    user_id = str(current_user["id"])
+    cached_orders = _get_cached_inventory(user_id, "orders")
+    if cached_orders is not None:
+        return cached_orders
+
     entry_statement = (
         select(StockEntry, SKU)
         .join(
@@ -233,4 +292,5 @@ def get_orders(
         key=lambda movement: movement["created_at"]
     )
 
+    _cache_inventory(user_id, "orders", movements)
     return movements

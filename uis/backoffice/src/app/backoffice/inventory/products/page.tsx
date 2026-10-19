@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 
 import InventoryNav from "@/components/inventory/InventoryNav";
@@ -9,14 +9,10 @@ import { listProducts } from "@/lib/inventory";
 import type { SKU } from "@/types/inventory";
 import styles from "@/app/backoffice/inventory/inventory.module.css";
 
-// Umbrales visuales del hito.
-// <= 5: bajo | <= 15: atención | > 15: saludable.
-// Son indicadores de UI, no reglas de negocio del backend.
-function stockClass(stock: number) {
-  if (stock <= 5) return `${styles.badge} ${styles.low}`;
-  if (stock <= 15) return `${styles.badge} ${styles.warning}`;
-  return `${styles.badge} ${styles.healthy}`;
-}
+const ProductsTable = dynamic(
+  () => import("@/components/inventory/ProductsTable"),
+  { loading: () => <p>Cargando tabla...</p> }
+);
 
 export default function ProductsPage() {
   return (
@@ -66,53 +62,7 @@ function ProductsContent() {
       {error && <div className={styles.error}>{error}</div>}
 
       {!loading && !error && (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>SKU</th>
-      <th>SKU</th>
-      <th>Cliente</th>
-      <th>Categoría</th>
-      <th>Almacén</th>
-                <th>Stock actual</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => (
-                <tr key={product.id}>
-                  <td>{product.name}</td>
-          <td>{product.sku}</td>
-          <td>{product.client_name}</td>
-          <td>{product.category}</td>
-          <td>{product.warehouse}</td>
-                  <td>
-                    <span className={stockClass(product.current_stock)}>
-                      {product.current_stock}
-                    </span>
-                  </td>
-                  <td>
-                    <div className={styles.actions}>
-                      <Link
-                        className={styles.actionLink}
-                        href={`/backoffice/inventory/orders/inbound?productId=${product.id}`}
-                      >
-                        Entrada
-                      </Link>
-                      <Link
-                        className={styles.actionLink}
-                        href={`/backoffice/inventory/orders/outbound?productId=${product.id}`}
-                      >
-                        Salida
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ProductsTable products={products} />
       )}
     </main>
   );

@@ -251,6 +251,22 @@ def test_inventory_product_and_movement_routes_return_filtered_contracts(client)
     )
     assert entry_response.status_code == 200
     assert "user_uuid" not in entry_response.json()
+    assert client.get("/inventory/products").json()[0]["current_stock"] == 3
+    assert len(client.get("/inventory/orders").json()) == 1
+
+    second_product_response = client.post(
+        "/inventory/products",
+        json={
+            "name": "Second Product",
+            "sku": "SKU-8",
+            "client_name": "Client",
+            "category": "fashion",
+            "warehouse": "LA",
+        },
+    )
+    assert second_product_response.status_code == 200
+    assert len(client.get("/inventory/products").json()) == 2
+    assert len(client.get("/inventory/orders").json()) == 1
 
     exit_response = client.post(
         "/inventory/orders/outbound",
@@ -264,6 +280,7 @@ def test_inventory_product_and_movement_routes_return_filtered_contracts(client)
     )
     assert exit_response.status_code == 200
     assert "user_uuid" not in exit_response.json()
+    assert client.get("/inventory/products").json()[0]["current_stock"] == 2
 
     movements = client.get("/inventory/orders")
     assert movements.status_code == 200
@@ -272,6 +289,23 @@ def test_inventory_product_and_movement_routes_return_filtered_contracts(client)
         assert "user_uuid" not in movement
         assert movement["sku"]["id"] == product_id
         assert "current_stock" not in movement["sku"]
+
+
+def test_inventory_cache_is_user_scoped_and_expires(monkeypatch):
+    inventory._invalidate_inventory_cache()
+    now = [100.0]
+    monkeypatch.setattr(inventory.time, "monotonic", lambda: now[0])
+
+    inventory._cache_inventory("user-1", "products", [{"name": "private"}])
+
+    assert inventory._get_cached_inventory("user-1", "products") == [
+        {"name": "private"}
+    ]
+    assert inventory._get_cached_inventory("user-2", "products") is None
+
+    now[0] += inventory._CACHE_TTL_SECONDS + 1
+    assert inventory._get_cached_inventory("user-1", "products") is None
+    assert inventory._inventory_cache == {}
 
 
 def test_trackflow_stock_alert_and_health_routes_return_declared_contracts(client):
